@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+
+  kafka:
+    image: apache/kafka:4.0.0
+    container_name: kafka-project
+    ports:
+      - "9092:9092"
+  mongodb:
+    image: mongo:6
+    container_name: mongodb-project
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  api-server:
+    build:
+      context: ./api-server
+    container_name: api-server
+    depends_on:
+      - kafka
+      - mongodb
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/test
+      - KAFKA_BROKER=kafka:9092
+
+  worker-server:
+    build:
+      context: ./worker-server
+    container_name: worker-server
+    depends_on:
+      - kafka
+      - mongodb
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/test
+      - KAFKA_BROKER=kafka:9092
+
+volumes:
+  mongo-data:
