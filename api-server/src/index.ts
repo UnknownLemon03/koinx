@@ -14,8 +14,16 @@ const app = express()
 
 
 app.use(CrytpRoute)
-
-
+app.use((req, res) => {
+    res.status(404).json({ message: "Route not found" });
+    return
+});
+//@ts-ignore
+app.use((err, req, res, next) => {
+    console.error("Unhandled error:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err?.message });
+    return
+});
 
 connectDB(process.env.DATABASE_URL as string);
 
@@ -29,4 +37,7 @@ const ConsumerActionHandler:EachMessageHandler = async ({ topic, partition, mess
 startKafkaConsumer(ConsumerActionHandler);
 
 
-app.listen(3000)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
