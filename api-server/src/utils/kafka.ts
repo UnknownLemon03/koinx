@@ -2,22 +2,22 @@ import { EachMessageHandler, Kafka } from 'kafkajs';
 
 const kafka = new Kafka({
   clientId: 'crypto-signal',
-  brokers: ['localhost:9092']  
+  brokers: [process.env.KAFKA_BROKER as string]  
 });
 
 
-const consumer = kafka.consumer({ groupId: 'crypto-group' });
+export const ConsumerKafka = kafka.consumer({ groupId: 'crypto-group' });
 
 
 // kafaka consumer which take action as input which run whenever there is crypto-price even
 export const startKafkaConsumer = async (Action:EachMessageHandler) => {
   try {
-    await consumer.connect();
+    await ConsumerKafka.connect();
     console.log('Kafka consumer connected');
 
-    await consumer.subscribe({ topic: 'crypto-prices', fromBeginning: true });
+    await ConsumerKafka.subscribe({ topic: 'crypto-prices', fromBeginning: true });
 
-    await consumer.run({
+    await ConsumerKafka.run({
       eachMessage: Action
     });
   } catch (err) {

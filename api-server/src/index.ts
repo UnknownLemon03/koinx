@@ -1,7 +1,7 @@
 import axios from "axios";
 import { CoinData } from "./utils/types";
 import dotenv from 'dotenv';
-import { startKafkaConsumer } from "./utils/kafka";
+import { ConsumerKafka, startKafkaConsumer } from "./utils/kafka";
 import { EachMessageHandler } from "kafkajs";
 import connectDB, { cryptoSaveDB } from "./database/database";
 import { FetchCryptoStats } from "./utils/util";
@@ -30,9 +30,24 @@ connectDB(process.env.DATABASE_URL as string);
 
 // whenever there is trigger even store date in database 
 const ConsumerActionHandler:EachMessageHandler = async ({ topic, partition, message }) => {
-      const data = await FetchCryptoStats(['bitcoin','ethereum','matic-network'])
-      await cryptoSaveDB(data)
-}
+  try {
+    const data = await FetchCryptoStats(['bitcoin', 'ethereum', 'matic-network']);
+    await cryptoSaveDB(data);
+
+    // Commit offset manually after successful processing
+    await ConsumerKafka.commitOffsets([
+      {
+        topic,
+        partition,
+        offset: (parseInt(message.offset, 10) + 1).toString(),
+      },
+    ]);
+  } catch (err) {
+    console.error('Error in ConsumerActionHandler:', err);
+    // Do not commit on failure — Kafka will retry this message
+  }
+};
+
 
 startKafkaConsumer(ConsumerActionHandler);
 
