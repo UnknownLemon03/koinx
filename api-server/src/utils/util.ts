@@ -10,18 +10,20 @@ export async function FetchCryptoStats(name:string[]) {
         const params = {
         // ids: 'bitcoin,ethereum,matic-network',
         ids:  name.map(e=>e.trim()).join(','),
-        vs_currencies: 'usd',
-        include_market_cap: 'true',
-        include_24hr_change: 'true',
+            vs_currencies: 'usd',
+            include_market_cap: 'true',
+            include_24hr_change: 'true',
         };
 
-        const response = await axios.get(url, { params });
-
-        data = Object.values(response.data as {string:CoinData}) 
+        const response = await axios.get<{[key:string]:CoinData}>(url, { params });
+        data = Object.keys(response.data).map((coin) => ({
+            ...response.data[coin],
+            name: coin,
+        })) as CoinData[];
+        // data = Object.values({name:,response.data} as {string:CoinData}) 
     } catch (error) {
         if(error instanceof Error)
             console.error('Failed to fetch crypto stats:', error.message);
-
     }
     return data
 }

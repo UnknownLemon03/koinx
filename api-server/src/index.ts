@@ -6,33 +6,42 @@ import { EachMessageHandler } from "kafkajs";
 import connectDB, { cryptoSaveDB } from "./database/database";
 import { FetchCryptoStats } from "./utils/util";
 import CryptoDB from "./models/Crypto";
-import express from "express"
+import express, { NextFunction, Request, Response } from "express"
 import { CrytpRoute } from "./controller";
+import { ConnectRedis, deleteCatch } from "./utils/redis";
 dotenv.config();
 
 const app = express()
 
 
 app.use(CrytpRoute)
+
 app.use((req, res) => {
     res.status(404).json({ message: "Route not found" });
     return
 });
-//@ts-ignore
-app.use((err, req, res, next) => {
+
+app.use((err:Request, req:Request, res:Response, next:NextFunction) => {
     console.error("Unhandled error:", err);
-    res.status(500).json({ message: "Internal Server Error", error: err?.message });
+    res.status(500).json({ message: "Internal Server Error", error: err instanceof Error ?  err.message : "Unknown error" });
     return
 });
 
-connectDB(process.env.DATABASE_URL as string);
 
 
-// whenever there is trigger even store date in database 
+// whenever there is trigger this function get executed , and stores data in database and clear c
 const ConsumerActionHandler:EachMessageHandler = async ({ topic, partition, message }) => {
   try {
-    const data = await FetchCryptoStats(['bitcoin', 'ethereum', 'matic-network']);
+    const coin = ['bitcoin', 'ethereum', 'matic-network']
+    const data = await FetchCryptoStats(coin);
+    console.log('Fetched data:', data);
     await cryptoSaveDB(data);
+    
+    
+    // remove cache for each coin deviation once database is updated
+    await Promise.all(
+      coin.map(e=>deleteCatch(`dev_${e.toLowerCase()}`))
+    )
 
     // Commit offset manually after successful processing
     await ConsumerKafka.commitOffsets([
@@ -49,8 +58,9 @@ const ConsumerActionHandler:EachMessageHandler = async ({ topic, partition, mess
 };
 
 
+connectDB(process.env.DATABASE_URL as string);
+ConnectRedis()
 startKafkaConsumer(ConsumerActionHandler);
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
